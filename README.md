@@ -60,7 +60,7 @@ npm run test:rules                                  # security rule tests
 | What | Where |
 |---|---|
 | Firebase web config (not secret) | `frontend/src/lib/config.ts` |
-| Admin email | `ADMIN_EMAIL` in `frontend/src/lib/config.ts` **and** `isAdmin()` in `firestore.rules` |
+| Admin account (Firebase UID, shown on `#/admin` after Google sign-in) | `ADMIN_UID` in `frontend/src/lib/config.ts` **and** `isAdmin()` in `firestore.rules` |
 | Firebase project ID | `.firebaserc` |
 | Repo name / URL path | `base` in `frontend/vite.config.ts` |
 | Deploy credentials | GitHub → Settings → Secrets → `FIREBASE_SERVICE_ACCOUNT` (never commit it) |

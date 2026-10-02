@@ -13,11 +13,11 @@ service cloud.firestore {
       return signedIn() && request.auth.uid == uid;
     }
 
-    // Keep in sync with ADMIN_EMAIL in frontend/src/lib/config.ts
+    // Keep in sync with ADMIN_UID in frontend/src/lib/config.ts
     function isAdmin() {
       return signedIn()
-        && request.auth.token.email == 'ADMIN_EMAIL_NOT_SET'
-        && request.auth.token.email_verified == true;
+        && request.auth.uid == 'ADMIN_UID_NOT_SET'
+        && request.auth.token.firebase.sign_in_provider == 'google.com';
     }
 
     function hasExactly(data, fields) {

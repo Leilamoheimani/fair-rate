@@ -9,9 +9,10 @@ export const firebaseConfig = {
   appId: "1:20227247403:web:c59929db4ac758e227896e",
 };
 
-// Google account that may open #/admin and download the data.
-// Must match the email in firestore.rules (isAdmin).
-export const ADMIN_EMAIL: string = import.meta.env.VITE_ADMIN_EMAIL || "";
+// Firebase Auth UID of the Google account that may open #/admin and download the data.
+// (A UID instead of an email so no personal data sits in this public repo.)
+// Must match the UID in firestore.rules (isAdmin). #/admin shows your UID after signing in.
+export const ADMIN_UID: string = import.meta.env.VITE_ADMIN_UID || "ADMIN_UID_NOT_SET";
 
 export const isFirebaseConfigured = firebaseConfig.projectId !== "";
 

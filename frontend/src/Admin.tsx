@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signOut, type User } from "firebase/auth";
 import { collectionGroup, getDocs, type DocumentData, type Timestamp } from "firebase/firestore";
-import { ADMIN_EMAIL } from "./lib/config";
+import { ADMIN_UID } from "./lib/config";
 import { downloadCsv } from "./lib/csv";
 import { auth, db, firebaseEnabled } from "./lib/firebase";
 import { screenNames } from "./lib/screens";
@@ -74,7 +74,7 @@ export default function Admin() {
   const [user, setUser] = useState<User | null | undefined>(undefined);
   const [data, setData] = useState<Data | null>(null);
   const [error, setError] = useState("");
-  const isAdmin = Boolean(user?.email && user.email.toLowerCase() === ADMIN_EMAIL.toLowerCase());
+  const isAdmin = Boolean(user && !user.isAnonymous && user.uid === ADMIN_UID);
 
   useEffect(() => (auth ? onAuthStateChanged(auth, setUser) : setUser(null)), []);
 
@@ -106,7 +106,7 @@ export default function Admin() {
           {firebaseEnabled && user === undefined && <p className="body">Lädt …</p>}
           {firebaseEnabled && user !== undefined && !isAdmin && <>
             <div className="intro compact"><h1>Daten herunterladen</h1><p className="body">Melde dich mit dem Admin-Google-Konto an.</p></div>
-            {user && !user.isAnonymous && <p className="feedback-status">{user.email} hat keinen Zugriff.</p>}
+            {user && !user.isAnonymous && <div className="info-row"><p>{user.email} hat noch keinen Zugriff. Deine Konto-ID (für ADMIN_UID):<br /><b className="admin-uid">{user.uid}</b></p></div>}
             <div className="sticky-action static"><button className="button" onClick={() => signInWithPopup(auth!, new GoogleAuthProvider()).catch((err) => setError(err.message))}>Mit Google anmelden</button></div>
           </>}
           {isAdmin && <>

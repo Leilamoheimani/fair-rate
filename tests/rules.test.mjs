@@ -3,11 +3,11 @@ import { after, before, beforeEach, test } from "node:test";
 import { assertFails, assertSucceeds, initializeTestEnvironment } from "@firebase/rules-unit-testing";
 import { collectionGroup, doc, getDoc, getDocs, serverTimestamp, setDoc, deleteDoc } from "firebase/firestore";
 
-const ADMIN = "admin@example.com";
+const ADMIN = "admin-uid";
 let env;
 
 before(async () => {
-  const rules = readFileSync(new URL("../firestore.rules", import.meta.url), "utf8").replace("ADMIN_EMAIL_NOT_SET", ADMIN);
+  const rules = readFileSync(new URL("../firestore.rules", import.meta.url), "utf8").replace(/request\.auth\.uid == '[^']*'/, `request.auth.uid == '${ADMIN}'`);
   env = await initializeTestEnvironment({ projectId: "demo-fair-rate", firestore: { rules } });
 });
 after(() => env.cleanup());
@@ -15,7 +15,7 @@ beforeEach(() => env.clearFirestore());
 
 const alice = () => env.authenticatedContext("alice", { firebase: { sign_in_provider: "anonymous" } }).firestore();
 const bob = () => env.authenticatedContext("bob", { firebase: { sign_in_provider: "anonymous" } }).firestore();
-const admin = () => env.authenticatedContext("admin", { email: ADMIN, email_verified: true }).firestore();
+const admin = () => env.authenticatedContext(ADMIN, { firebase: { sign_in_provider: "google.com" } }).firestore();
 
 const session = (uid, sessionId = "s1") => ({
   uid, sessionId, startedAt: serverTimestamp(), appVersion: "test", userAgent: "ua", viewport: "390x844", language: "de",
@@ -80,7 +80,7 @@ test("only the admin can read across participants", async () => {
     const snap = await assertSucceeds(getDocs(collectionGroup(admin(), name)));
     if (snap.size !== 1) throw new Error(`expected 1 ${name}, got ${snap.size}`);
   }
-  const fakeAdmin = env.authenticatedContext("eve", { email: ADMIN, email_verified: false }).firestore();
+  const fakeAdmin = env.authenticatedContext("eve", { firebase: { sign_in_provider: "google.com" } }).firestore();
   await assertFails(getDocs(collectionGroup(fakeAdmin, "sessions")));
   await assertFails(setDoc(sessionPath(admin(), "alice"), session("alice", "s2")));
 });
