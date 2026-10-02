@@ -16,7 +16,7 @@ service cloud.firestore {
     // Keep in sync with ADMIN_UID in frontend/src/lib/config.ts
     function isAdmin() {
       return signedIn()
-        && request.auth.uid == 'ADMIN_UID_NOT_SET'
+        && request.auth.uid == 'JgR6YKPFlxXYmHYlxPFCnkvzfHK2'
         && request.auth.token.firebase.sign_in_provider == 'google.com';
     }
 

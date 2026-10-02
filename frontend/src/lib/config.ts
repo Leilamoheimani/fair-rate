@@ -12,7 +12,7 @@ export const firebaseConfig = {
 // Firebase Auth UID of the Google account that may open #/admin and download the data.
 // (A UID instead of an email so no personal data sits in this public repo.)
 // Must match the UID in firestore.rules (isAdmin). #/admin shows your UID after signing in.
-export const ADMIN_UID: string = import.meta.env.VITE_ADMIN_UID || "ADMIN_UID_NOT_SET";
+export const ADMIN_UID: string = import.meta.env.VITE_ADMIN_UID || "JgR6YKPFlxXYmHYlxPFCnkvzfHK2";
 
 export const isFirebaseConfigured = firebaseConfig.projectId !== "";
 
