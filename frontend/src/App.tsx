@@ -1,4 +1,5 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { logStep, startSession, submitFeedback, type Snapshot } from "./lib/tracking";
 
 type Screen = 0 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 11 | 12;
 
@@ -132,6 +133,10 @@ const text = {
   confidence: "Wie sicher fühlst du dich jetzt mit diesem Preis?",
   unclear: "Was ist noch unklar?",
   newOffer: "Neues Angebot",
+  sendFeedback: "Feedback senden",
+  sendingFeedback: "Wird gesendet …",
+  feedbackSent: "Danke für dein Feedback!",
+  feedbackError: "Senden hat nicht geklappt. Bitte versuch es nochmal.",
   shortReady: "Deine erste Schätzung ist bereit. Du kannst jederzeit zurückkommen und sie mit deinen echten Kosten präzisieren.",
 } as const;
 
@@ -180,8 +185,70 @@ export default function App() {
   const [replyOpen, setReplyOpen] = useState<number | null>(0);
   const [confidence, setConfidence] = useState(4);
   const [unclear, setUnclear] = useState("");
+  const [whyOpened, setWhyOpened] = useState(false);
+  const [scopeSkipped, setScopeSkipped] = useState(false);
+  const [shareActions, setShareActions] = useState<string[]>([]);
+  const [confidenceChanged, setConfidenceChanged] = useState(false);
+  const [feedbackStatus, setFeedbackStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const touchStart = useRef(0);
   const t = text;
+
+  // Everything the participant has chosen so far, stored with every step.
+  const snapshot: Snapshot = {
+    early,
+    profession,
+    project,
+    customProject,
+    size,
+    costsChecked: costChecked.map((index) => t.costs[index]),
+    costValues: [...costValues],
+    utilization: assumptions[0],
+    taxReserve: assumptions[1],
+    margin: assumptions[2],
+    whyOpened,
+    services: services.map((index) => t.serviceItems[index]),
+    revisions: t.revisionItems[revision],
+    deadline,
+    specifics: specifics.map((index) => t.specificItems[index]),
+    scopeSkipped,
+    optionViewed: t.options[option],
+    scopeOpenFor: openOption === null ? null : t.options[openOption],
+    reduced,
+    offerClient: offer.client,
+    offerProject: offer.project,
+    offerValid: offer.valid,
+    offerMessage: offer.message,
+    shareActions,
+    confidence,
+    confidenceChanged,
+    unclear,
+  };
+  const snapshotRef = useRef(snapshot);
+  snapshotRef.current = snapshot;
+
+  const tracking = useRef<{ sessionId: string; index: number; screen: Screen; enteredAt: number; newSession: boolean } | null>(null);
+  useEffect(() => {
+    const now = Date.now();
+    const current = tracking.current;
+    if (!current) {
+      tracking.current = { sessionId: startSession(), index: 0, screen, enteredAt: now, newSession: false };
+      return;
+    }
+    if (current.screen === screen) return;
+    logStep(current.sessionId, { index: current.index, screen: current.screen, toScreen: screen, enteredAt: current.enteredAt, leftAt: now, state: snapshotRef.current });
+    if (current.newSession) {
+      tracking.current = { sessionId: startSession(), index: 0, screen, enteredAt: now, newSession: false };
+    } else {
+      tracking.current = { ...current, index: current.index + 1, screen, enteredAt: now };
+    }
+  }, [screen]);
+
+  const sendFeedback = async () => {
+    if (!tracking.current) return;
+    setFeedbackStatus("sending");
+    const ok = await submitFeedback(tracking.current.sessionId, { confidence, unclear, path: early ? "early" : "full", state: snapshotRef.current });
+    setFeedbackStatus(ok ? "sent" : "error");
+  };
 
   const progress = ({ 2: 1, 4: 2, 5: 3, 6: 4, 7: 5 } as Record<number, number>)[screen];
   const projectOptions = (text.projectMap as Record<string, readonly string[]>)[profession] ?? [];
@@ -193,6 +260,12 @@ export default function App() {
   };
   const toggle = (value: number, list: number[], setter: (next: number[]) => void) => setter(list.includes(value) ? list.filter((item) => item !== value) : [...list, value]);
   const startNew = () => {
+    if (screen === 12 && tracking.current) {
+      tracking.current.newSession = true;
+      setFeedbackStatus("idle");
+      setConfidenceChanged(false);
+      setShareActions([]);
+    }
     setEarly(false);
     setScreen(2);
   };
@@ -210,6 +283,7 @@ export default function App() {
     anchor.click();
     URL.revokeObjectURL(url);
     setShareDone(t.pdf);
+    setShareActions((items) => [...items, "pdf"]);
   };
 
   return (
@@ -266,7 +340,7 @@ export default function App() {
           {screen === 5 && <>
             <div className="intro floor-intro"><p className="eyebrow">{t.floorLabel}</p><h1>{assumptions[0] < 60 ? t.floorHigh : t.floor}</h1><p className="body">{t.floorSub}</p></div>
             <div className="minimum-card">
-              <button className="expander" onClick={() => setWhyOpen(!whyOpen)}><span>{t.why}</span><Chevron up={whyOpen} /></button>
+              <button className="expander" onClick={() => { setWhyOpen(!whyOpen); setWhyOpened(true); }}><span>{t.why}</span><Chevron up={whyOpen} /></button>
               <div className={`expand-content price-breakdown ${whyOpen ? "open" : ""}`}><div>{t.whyRows.map(([label, value]) => <p key={label}><span>{label}</span><b>{value}</b></p>)}</div></div>
             </div>
             <div className="assumptions">{t.assumptions.map((label, index) => <div className={index === 0 && assumptions[0] !== 75 ? "changed" : ""} key={label}><div><b>{label}</b><strong>{assumptions[index]} %</strong></div><input className="slider" type="range" min={index === 0 ? 40 : 10} max={index === 0 ? 90 : 40} step="5" value={assumptions[index]} onChange={(event) => { const next = [...assumptions]; next[index] = Number(event.target.value); setAssumptions(next); }} /><p>{t.defaults[index]}{index === 0 && assumptions[0] !== 75 && <em>{t.adjusted}</em>}</p></div>)}</div>
@@ -281,8 +355,8 @@ export default function App() {
               <Field label={t.deadline} type="date" value={deadline} onChange={setDeadline} />
               <div><b>{t.specifics}</b><div className="choice-row">{t.specificItems.map((item, index) => <button className={specifics.includes(index) ? "selected" : ""} key={item} onClick={() => toggle(index, specifics, setSpecifics)}>{item}</button>)}</div></div>
             </div>
-            <button className="text-link left-link" onClick={() => setScreen(7)}>{t.skip}</button><small className="skip-note">{t.skipNote}</small>
-            <div className="sticky-action"><Button onClick={() => setScreen(7)}>{t.create}</Button></div>
+            <button className="text-link left-link" onClick={() => { setScopeSkipped(true); setScreen(7); }}>{t.skip}</button><small className="skip-note">{t.skipNote}</small>
+            <div className="sticky-action"><Button onClick={() => { setScopeSkipped(false); setScreen(7); }}>{t.create}</Button></div>
           </>}
 
           {screen === 7 && <>
@@ -325,8 +399,8 @@ export default function App() {
             <div className="intro compact"><h1>{t.sendTitle}</h1></div>
             <div className="share-actions">
               <button onClick={download}><span><b>{t.pdf}</b><small>{t.file}</small></span><strong>PDF</strong></button>
-              <button onClick={() => { navigator.clipboard?.writeText(`https://${t.share}`); setShareDone(t.link); }}><span><b>{t.link}</b><small>{t.share}</small></span><CopyIcon /></button>
-              <button onClick={() => { window.location.href = `mailto:?subject=${encodeURIComponent(t.prepareTitle)}&body=${encodeURIComponent(`https://${t.share}`)}`; setShareDone(t.mail); }}><span><b>{t.mail}</b><small>{t.share}</small></span><strong>@</strong></button>
+              <button onClick={() => { navigator.clipboard?.writeText(`https://${t.share}`); setShareDone(t.link); setShareActions((items) => [...items, "link"]); }}><span><b>{t.link}</b><small>{t.share}</small></span><CopyIcon /></button>
+              <button onClick={() => { window.location.href = `mailto:?subject=${encodeURIComponent(t.prepareTitle)}&body=${encodeURIComponent(`https://${t.share}`)}`; setShareDone(t.mail); setShareActions((items) => [...items, "mail"]); }}><span><b>{t.mail}</b><small>{t.share}</small></span><strong>@</strong></button>
             </div>
             {shareDone && <div className="adjusted-banner"><Check /><span>{shareDone}</span></div>}
             <div className="info-row send-note"><span><Check /></span><p>{t.sendNote}</p></div>
@@ -337,7 +411,7 @@ export default function App() {
             <div className="success-art"><span><Check /></span><i /><i /></div>
             <div className="intro success-intro"><p className="eyebrow">{t.ready} ✓</p>{early && <p className="body">{t.shortReady}</p>}</div>
             {!early && <div className="kit"><div className="kit-heading"><div><strong>{t.questions}</strong></div><Spark /></div>{t.situations.map((item, index) => <div className="kit-item" key={item}><button onClick={() => setReplyOpen(replyOpen === index ? null : index)}><span>{item}</span><Chevron up={replyOpen === index} /></button><div className={`kit-answer ${replyOpen === index ? "open" : ""}`}><p>{t.replies[index]} <button className="copy-button" onClick={() => navigator.clipboard?.writeText(t.replies[index])}><CopyIcon /></button></p></div></div>)}</div>}
-            <div className="confidence-card"><b>{t.confidence}</b><div>{[1, 2, 3, 4, 5].map((value) => <button className={confidence === value ? "active" : ""} key={value} onClick={() => setConfidence(value)}>{value}</button>)}</div><Field label={t.unclear} value={unclear} onChange={setUnclear} /></div>
+            <div className="confidence-card"><b>{t.confidence}</b><div>{[1, 2, 3, 4, 5].map((value) => <button className={confidence === value ? "active" : ""} key={value} onClick={() => { setConfidence(value); setConfidenceChanged(true); }}>{value}</button>)}</div><Field label={t.unclear} value={unclear} onChange={setUnclear} /><div className="feedback-action">{feedbackStatus === "sent" ? <p className="feedback-status sent"><Check />{t.feedbackSent}</p> : <Button secondary disabled={feedbackStatus === "sending"} onClick={sendFeedback}>{feedbackStatus === "sending" ? t.sendingFeedback : t.sendFeedback}</Button>}{feedbackStatus === "error" && <p className="feedback-status">{t.feedbackError}</p>}</div></div>
             <div className="sticky-action static"><Button onClick={startNew}>{t.newOffer}</Button></div>
           </>}
         </div>

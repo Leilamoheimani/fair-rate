@@ -1,0 +1,94 @@
+rules_version = '2';
+
+// Participants (anonymous auth) can only create their own documents, once.
+// Nothing can be updated or deleted from a client. Only the admin reads everything.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    // Keep in sync with ADMIN_EMAIL in frontend/src/lib/config.ts
+    function isAdmin() {
+      return signedIn()
+        && request.auth.token.email == 'ADMIN_EMAIL_NOT_SET'
+        && request.auth.token.email_verified == true;
+    }
+
+    function hasExactly(data, fields) {
+      return data.keys().hasAll(fields) && data.keys().hasOnly(fields);
+    }
+
+    function str(value, max) {
+      return value is string && value.size() <= max;
+    }
+
+    function state(value) {
+      return value is map && value.size() <= 40;
+    }
+
+    match /participants/{uid}/sessions/{sessionId} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow create: if isOwner(uid)
+        && hasExactly(request.resource.data, ['uid', 'sessionId', 'startedAt', 'appVersion', 'userAgent', 'viewport', 'language'])
+        && request.resource.data.uid == uid
+        && request.resource.data.sessionId == sessionId
+        && sessionId.size() <= 64
+        && request.resource.data.startedAt == request.time
+        && str(request.resource.data.appVersion, 64)
+        && str(request.resource.data.userAgent, 500)
+        && str(request.resource.data.viewport, 20)
+        && str(request.resource.data.language, 20);
+
+      match /steps/{stepId} {
+        allow read: if isOwner(uid) || isAdmin();
+        allow create: if isOwner(uid)
+          && hasExactly(request.resource.data, ['uid', 'sessionId', 'index', 'screen', 'screenName', 'toScreen', 'toScreenName', 'enteredAt', 'durationMs', 'state', 'appVersion', 'createdAt'])
+          && request.resource.data.uid == uid
+          && request.resource.data.sessionId == sessionId
+          && request.resource.data.index is int && request.resource.data.index >= 0 && request.resource.data.index < 1000
+          && request.resource.data.screen is int
+          && request.resource.data.toScreen is int
+          && str(request.resource.data.screenName, 32)
+          && str(request.resource.data.toScreenName, 32)
+          && request.resource.data.enteredAt is int
+          && request.resource.data.durationMs is int && request.resource.data.durationMs >= 0
+          && state(request.resource.data.state)
+          && str(request.resource.data.appVersion, 64)
+          && request.resource.data.createdAt == request.time;
+      }
+
+      match /feedback/{feedbackId} {
+        allow read: if isOwner(uid) || isAdmin();
+        allow create: if isOwner(uid)
+          && feedbackId == 'final'
+          && hasExactly(request.resource.data, ['uid', 'sessionId', 'confidence', 'unclear', 'path', 'state', 'appVersion', 'createdAt'])
+          && request.resource.data.uid == uid
+          && request.resource.data.sessionId == sessionId
+          && request.resource.data.confidence is int
+          && request.resource.data.confidence >= 1 && request.resource.data.confidence <= 5
+          && str(request.resource.data.unclear, 2000)
+          && request.resource.data.path in ['early', 'full']
+          && state(request.resource.data.state)
+          && str(request.resource.data.appVersion, 64)
+          && request.resource.data.createdAt == request.time;
+      }
+    }
+
+    // Admin export uses collection group queries across all participants.
+    match /{path=**}/sessions/{sessionId} {
+      allow read: if isAdmin();
+    }
+    match /{path=**}/steps/{stepId} {
+      allow read: if isAdmin();
+    }
+    match /{path=**}/feedback/{feedbackId} {
+      allow read: if isAdmin();
+    }
+  }
+}
