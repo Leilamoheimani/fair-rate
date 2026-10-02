@@ -4,8 +4,8 @@ A clickable prototype (designed in Figma Make) used in a study with ~20–30 par
 Every participant's path through the app, their choices and their final feedback are saved to Firebase.
 The owner downloads everything as CSV from a private admin page.
 
-- **App:** `https://<github-user>.github.io/fair-rate/`
-- **Admin / data download:** `https://<github-user>.github.io/fair-rate/#/admin`
+- **App:** `https://leilamoheimani.github.io/fair-rate/`
+- **Admin / data download:** `https://leilamoheimani.github.io/fair-rate/#/admin`
 
 ## What gets saved
 
