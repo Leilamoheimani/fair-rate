@@ -25,7 +25,7 @@ button, input, select { font: inherit; }
 button { color: inherit; }
 svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
-.app-shell { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
+.app-shell { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: safe center; gap: 12px; padding: 24px; }
 .phone { position: relative; width: 390px; height: 844px; max-width: 100%; overflow: hidden; background: var(--surface); box-shadow: 0 24px 80px rgba(29, 43, 74, .18); }
 .topbar { height: 68px; display: flex; align-items: center; justify-content: space-between; padding: 0 22px; border-bottom: 1px solid var(--border); background: rgba(255,255,255,.94); }
 .brand { border: 0; background: none; display: flex; align-items: center; gap: 9px; padding: 0; font-size: 17px; font-weight: 760; letter-spacing: -.03em; cursor: pointer; }
@@ -242,6 +242,8 @@ h1 { margin: 0; font-size: 29px; line-height: 1.08; letter-spacing: -.045em; fon
 .warning-copy { margin: 13px 2px 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
 .equal-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin-top: 26px; }
 .equal-actions .button { height: 70px; padding: 10px; font-size: 12px; }
+.equal-actions.single { grid-template-columns: 1fr; }
+.equal-actions.single .button { height: auto; }
 .offer-form { margin-top: 19px; gap: 9px; }
 .offer-form .input-wrap { height: 42px; }
 .branding-row { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin-top: 18px; }
@@ -261,12 +263,6 @@ h1 { margin: 0; font-size: 29px; line-height: 1.08; letter-spacing: -.045em; fon
 .send-note { margin-top: 19px; }
 .copy-button { display: inline-grid; place-items: center; margin-left: 4px; padding: 3px; border: 0; background: none; color: var(--blue); vertical-align: middle; }
 .copy-button svg { width: 13px; }
-.confidence-card { margin-top: 15px; padding: 15px; border: 1px solid var(--border); border-radius: 14px; }
-.confidence-card > b { display: block; font-size: 11px; line-height: 1.4; }
-.confidence-card > div { display: flex; gap: 7px; margin: 12px 0; }
-.confidence-card > div button { width: 31px; height: 31px; border: 1px solid var(--border); border-radius: 8px; background: #fff; font-size: 11px; }
-.confidence-card > div button.active { border-color: var(--blue); color: #fff; background: var(--blue); }
-.confidence-card .input-wrap { height: 40px; }
 
 .onboarding-intro { margin-top: -2px; }
 .onboarding-intro h1 { font-size: 31px; }
@@ -292,13 +288,50 @@ h1 { margin: 0; font-size: 29px; line-height: 1.08; letter-spacing: -.045em; fon
 .result-preview b { margin-top: 5px; font-size: 11px; white-space: nowrap; }
 .result-preview i { display: block; width: 65%; height: 3px; margin-top: 11px; border-radius: 3px; background: var(--border); }
 
-@media (max-width: 430px) {
-  .app-shell { display: block; padding: 0; }
-  .phone { width: 100%; height: 100dvh; box-shadow: none; }
-}
 
-.confidence-card > .feedback-action { display: block; margin: 12px 0 0; }
+
 .feedback-status { display: flex; align-items: center; gap: 7px; margin: 8px 0 0; color: var(--danger); font-size: 11px; font-weight: 700; }
 .feedback-status.sent { margin: 0; padding: 9px 11px; border-radius: 10px; color: var(--green); background: #eaf7f0; }
 .feedback-status svg { width: 15px; }
 .admin-uid { display: block; margin-top: 6px; color: var(--ink); font-family: ui-monospace, monospace; font-size: 12px; user-select: all; word-break: break-all; }
+
+/* Usability test layer */
+.taskbar { position: sticky; z-index: 10; top: 12px; width: 390px; max-width: 100%; padding: 12px 16px 14px; border-radius: 16px; color: #fff; background: var(--ink); box-shadow: 0 12px 30px rgba(23,32,51,.25); }
+.taskbar.min { padding-bottom: 12px; }
+.taskbar-row { display: flex; align-items: center; justify-content: space-between; }
+.taskbar-row span { color: #9fb8f7; font-size: 10px; font-weight: 800; letter-spacing: .09em; }
+.taskbar-row button { border: 0; padding: 0; background: none; color: #c3cad6; font-size: 11px; font-weight: 650; text-decoration: underline; cursor: pointer; }
+.taskbar p { margin: 6px 0 12px; font-size: 14px; font-weight: 600; line-height: 1.4; }
+.taskbar-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.taskbar-actions button { min-height: 38px; padding: 6px 10px; border: 0; border-radius: 10px; color: #fff; background: #26855b; font-size: 12px; font-weight: 750; cursor: pointer; }
+.taskbar-actions button.stuck { color: var(--ink); background: #fff; }
+
+.study-overlay { position: fixed; z-index: 20; inset: 0; display: flex; align-items: flex-end; justify-content: center; background: rgba(23,32,51,.45); animation: fade .2s ease-out; }
+.study-sheet { width: 100%; max-width: 430px; max-height: 92dvh; overflow-y: auto; padding: 22px 22px calc(18px + env(safe-area-inset-bottom)); border-radius: 22px 22px 0 0; background: #fff; box-shadow: 0 -12px 40px rgba(23,32,51,.2); animation: rise .25s ease-out; }
+.study-sheet h1 { font-size: 25px; }
+.study-sheet h2 { margin: 0 0 16px; font-size: 19px; line-height: 1.25; letter-spacing: -.03em; }
+.study-sheet .body { margin-top: 10px; }
+.study-cta { margin-top: 20px; }
+@keyframes fade { from { opacity: 0; } }
+@keyframes rise { from { transform: translateY(30px); } }
+.lang-toggle { display: flex; justify-content: flex-end; gap: 4px; margin-bottom: 8px; }
+.lang-toggle button { min-width: 38px; padding: 5px 8px; border: 1px solid var(--border); border-radius: 8px; background: #fff; font-size: 11px; font-weight: 750; cursor: pointer; }
+.lang-toggle button.active { border-color: var(--blue); color: #fff; background: var(--blue); }
+.scale { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+.scale button, .choice-list button { min-height: 46px; border: 1px solid var(--border); border-radius: 11px; background: #fff; font-size: 15px; font-weight: 700; cursor: pointer; }
+.scale button.selected, .choice-list button.selected { border-color: var(--blue); color: #fff; background: var(--blue); }
+.scale-ends { display: flex; justify-content: space-between; margin-top: 7px; color: var(--muted); font-size: 11px; }
+.choice-list { display: grid; gap: 8px; }
+.choice-list button { font-size: 14px; }
+.study-sheet textarea { width: 100%; min-height: 110px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 11px; outline: 0; resize: vertical; background: var(--subtle); color: var(--ink); font: inherit; font-size: 15px; line-height: 1.45; }
+.study-sheet textarea:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(47,111,237,.1); }
+.thanks .screen { height: 100%; padding-top: 80px; }
+.thanks .success-art > span { font-size: 30px; font-weight: 800; }
+.thanks .feedback-status { margin-top: 22px; line-height: 1.45; }
+.thanks-status { text-align: center; }
+
+@media (max-width: 430px) {
+  .app-shell { height: 100dvh; min-height: 0; justify-content: flex-start; gap: 0; padding: 0; }
+  .phone { flex: 1 1 auto; min-height: 0; width: 100%; height: auto; box-shadow: none; }
+  .taskbar { position: static; flex: 0 0 auto; width: 100%; border-radius: 0; box-shadow: none; }
+}

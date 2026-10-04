@@ -17,70 +17,78 @@ const alice = () => env.authenticatedContext("alice", { firebase: { sign_in_prov
 const bob = () => env.authenticatedContext("bob", { firebase: { sign_in_provider: "anonymous" } }).firestore();
 const admin = () => env.authenticatedContext(ADMIN, { firebase: { sign_in_provider: "google.com" } }).firestore();
 
-const session = (uid, sessionId = "s1") => ({
-  uid, sessionId, startedAt: serverTimestamp(), appVersion: "test", userAgent: "ua", viewport: "390x844", language: "de",
+const run = (uid, runId = "r1") => ({
+  uid, runId, lang: "de", startedAt: serverTimestamp(), appVersion: "test", userAgent: "ua", viewport: "390x844", language: "de",
 });
-const step = (uid, sessionId = "s1") => ({
-  uid, sessionId, index: 0, screen: 0, screenName: "start", toScreen: 2, toScreenName: "projekt",
-  enteredAt: 1700000000000, durationMs: 1200, state: { profession: "Design", services: ["Konzept"] }, appVersion: "test", createdAt: serverTimestamp(),
+const task = (uid, n = 1, runId = "r1") => ({
+  uid, runId, task: n, status: "reached", durationMs: 12000, clicks: 7, endScreen: "projekt",
+  answers: { ease: 4, summary: "Preise berechnen", prefer_single_price: "no", approach: null }, appVersion: "test", createdAt: serverTimestamp(),
 });
-const feedback = (uid, sessionId = "s1") => ({
-  uid, sessionId, confidence: 4, unclear: "nichts", path: "full", state: {}, appVersion: "test", createdAt: serverTimestamp(),
+const final = (uid, runId = "r1") => ({
+  uid, runId, answers: { confidence: 3, unclear: "nichts", would_use: "maybe" }, totalMs: 300000,
+  path: ["start@0", "projekt@5"], events: ["whyOpened@40"], choices: { profession: "Design", services: ["Konzept"] },
+  appVersion: "test", createdAt: serverTimestamp(),
 });
 
-const sessionPath = (db, uid) => doc(db, "participants", uid, "sessions", "s1");
-const stepPath = (db, uid) => doc(db, "participants", uid, "sessions", "s1", "steps", "0000");
-const feedbackPath = (db, uid, id = "final") => doc(db, "participants", uid, "sessions", "s1", "feedback", id);
+const runPath = (db, uid) => doc(db, "participants", uid, "runs", "r1");
+const taskPath = (db, uid, id = "1") => doc(db, "participants", uid, "runs", "r1", "tasks", id);
+const finalPath = (db, uid, id = "final") => doc(db, "participants", uid, "runs", "r1", "final", id);
 
-test("participant can create own session, step and feedback", async () => {
+test("participant can create own run, task results and final answers", async () => {
   const db = alice();
-  await assertSucceeds(setDoc(sessionPath(db, "alice"), session("alice")));
-  await assertSucceeds(setDoc(stepPath(db, "alice"), step("alice")));
-  await assertSucceeds(setDoc(feedbackPath(db, "alice"), feedback("alice")));
-  await assertSucceeds(getDoc(stepPath(db, "alice")));
+  await assertSucceeds(setDoc(runPath(db, "alice"), run("alice")));
+  await assertSucceeds(setDoc(taskPath(db, "alice"), task("alice")));
+  await assertSucceeds(setDoc(taskPath(db, "alice", "4"), { ...task("alice", 4), status: "stuck", answers: {} }));
+  await assertSucceeds(setDoc(finalPath(db, "alice"), final("alice")));
+  await assertSucceeds(getDoc(taskPath(db, "alice")));
 });
 
 test("unauthenticated users can do nothing", async () => {
   const db = env.unauthenticatedContext().firestore();
-  await assertFails(setDoc(sessionPath(db, "alice"), session("alice")));
-  await assertFails(getDoc(sessionPath(db, "alice")));
+  await assertFails(setDoc(runPath(db, "alice"), run("alice")));
+  await assertFails(getDoc(runPath(db, "alice")));
 });
 
 test("participant cannot write or read someone else's data", async () => {
-  await assertSucceeds(setDoc(sessionPath(alice(), "alice"), session("alice")));
-  await assertFails(setDoc(sessionPath(bob(), "alice"), session("alice")));
-  await assertFails(setDoc(sessionPath(bob(), "alice"), session("bob")));
-  await assertFails(getDoc(sessionPath(bob(), "alice")));
-  await assertFails(getDocs(collectionGroup(bob(), "sessions")));
+  await assertSucceeds(setDoc(runPath(alice(), "alice"), run("alice")));
+  await assertFails(setDoc(runPath(bob(), "alice"), run("alice")));
+  await assertFails(setDoc(runPath(bob(), "alice"), run("bob")));
+  await assertFails(getDoc(runPath(bob(), "alice")));
+  await assertFails(getDocs(collectionGroup(bob(), "runs")));
 });
 
 test("results are write-once", async () => {
   const db = alice();
-  await assertSucceeds(setDoc(stepPath(db, "alice"), step("alice")));
-  await assertFails(setDoc(stepPath(db, "alice"), step("alice")));
-  await assertFails(deleteDoc(stepPath(db, "alice")));
+  await assertSucceeds(setDoc(taskPath(db, "alice"), task("alice")));
+  await assertFails(setDoc(taskPath(db, "alice"), task("alice")));
+  await assertFails(deleteDoc(taskPath(db, "alice")));
 });
 
 test("invalid data is rejected", async () => {
   const db = alice();
-  await assertFails(setDoc(sessionPath(db, "alice"), { ...session("alice"), extra: true }));
-  await assertFails(setDoc(sessionPath(db, "alice"), { ...session("alice"), startedAt: new Date(0) }));
-  await assertFails(setDoc(stepPath(db, "alice"), { ...step("alice"), durationMs: -1 }));
-  await assertFails(setDoc(stepPath(db, "alice"), { ...step("alice"), state: "x" }));
-  await assertFails(setDoc(feedbackPath(db, "alice"), { ...feedback("alice"), confidence: 9 }));
-  await assertFails(setDoc(feedbackPath(db, "alice"), { ...feedback("alice"), unclear: "x".repeat(2001) }));
-  await assertFails(setDoc(feedbackPath(db, "alice", "other"), feedback("alice")));
+  await assertFails(setDoc(runPath(db, "alice"), { ...run("alice"), extra: true }));
+  await assertFails(setDoc(runPath(db, "alice"), { ...run("alice"), lang: "fr" }));
+  await assertFails(setDoc(runPath(db, "alice"), { ...run("alice"), startedAt: new Date(0) }));
+  await assertFails(setDoc(taskPath(db, "alice", "5"), task("alice", 5)));
+  await assertFails(setDoc(taskPath(db, "alice", "2"), task("alice", 1)));
+  await assertFails(setDoc(taskPath(db, "alice"), { ...task("alice"), status: "done" }));
+  await assertFails(setDoc(taskPath(db, "alice"), { ...task("alice"), durationMs: -1 }));
+  await assertFails(setDoc(taskPath(db, "alice"), { ...task("alice"), answers: { ease: 9 } }));
+  await assertFails(setDoc(taskPath(db, "alice"), { ...task("alice"), answers: { unknown: "x" } }));
+  await assertFails(setDoc(taskPath(db, "alice"), { ...task("alice"), answers: { summary: "x".repeat(2001) } }));
+  await assertFails(setDoc(finalPath(db, "alice"), { ...final("alice"), choices: "x" }));
+  await assertFails(setDoc(finalPath(db, "alice", "other"), final("alice")));
 });
 
 test("only the admin can read across participants", async () => {
-  await setDoc(sessionPath(alice(), "alice"), session("alice"));
-  await setDoc(stepPath(alice(), "alice"), step("alice"));
-  await setDoc(feedbackPath(alice(), "alice"), feedback("alice"));
-  for (const name of ["sessions", "steps", "feedback"]) {
+  await setDoc(runPath(alice(), "alice"), run("alice"));
+  await setDoc(taskPath(alice(), "alice"), task("alice"));
+  await setDoc(finalPath(alice(), "alice"), final("alice"));
+  for (const name of ["runs", "tasks", "final"]) {
     const snap = await assertSucceeds(getDocs(collectionGroup(admin(), name)));
     if (snap.size !== 1) throw new Error(`expected 1 ${name}, got ${snap.size}`);
   }
   const fakeAdmin = env.authenticatedContext("eve", { firebase: { sign_in_provider: "google.com" } }).firestore();
-  await assertFails(getDocs(collectionGroup(fakeAdmin, "sessions")));
-  await assertFails(setDoc(sessionPath(admin(), "alice"), session("alice", "s2")));
+  await assertFails(getDocs(collectionGroup(fakeAdmin, "runs")));
+  await assertFails(setDoc(runPath(admin(), "alice"), run("alice", "r2")));
 });

@@ -28,66 +28,80 @@ service cloud.firestore {
       return value is string && value.size() <= max;
     }
 
-    function state(value) {
-      return value is map && value.size() <= 40;
+    // Question ids from frontend/src/study/content.ts.
+    function answers(value) {
+      return value is map
+        && value.keys().hasOnly(['summary', 'ease', 'number_meaning', 'option_difference', 'prefer_single_price', 'approach', 'warning_seen',
+                                 'confidence', 'unclear', 'most_confusing', 'would_use', 'self_employed'])
+        && answer(value, 'summary') && answer(value, 'ease') && answer(value, 'number_meaning') && answer(value, 'option_difference')
+        && answer(value, 'prefer_single_price') && answer(value, 'approach') && answer(value, 'warning_seen') && answer(value, 'confidence')
+        && answer(value, 'unclear') && answer(value, 'most_confusing') && answer(value, 'would_use') && answer(value, 'self_employed');
     }
 
-    match /participants/{uid}/sessions/{sessionId} {
+    // Free text, a choice id or a 1-5 rating; null when skipped.
+    function answer(value, key) {
+      return !(key in value)
+        || value[key] == null
+        || str(value[key], 2000)
+        || (value[key] is int && value[key] >= 1 && value[key] <= 5);
+    }
+
+    match /participants/{uid}/runs/{runId} {
       allow read: if isOwner(uid) || isAdmin();
       allow create: if isOwner(uid)
-        && hasExactly(request.resource.data, ['uid', 'sessionId', 'startedAt', 'appVersion', 'userAgent', 'viewport', 'language'])
+        && hasExactly(request.resource.data, ['uid', 'runId', 'lang', 'startedAt', 'appVersion', 'userAgent', 'viewport', 'language'])
         && request.resource.data.uid == uid
-        && request.resource.data.sessionId == sessionId
-        && sessionId.size() <= 64
+        && request.resource.data.runId == runId
+        && runId.size() <= 64
+        && request.resource.data.lang in ['de', 'en']
         && request.resource.data.startedAt == request.time
         && str(request.resource.data.appVersion, 64)
         && str(request.resource.data.userAgent, 500)
         && str(request.resource.data.viewport, 20)
         && str(request.resource.data.language, 20);
 
-      match /steps/{stepId} {
+      match /tasks/{taskId} {
         allow read: if isOwner(uid) || isAdmin();
         allow create: if isOwner(uid)
-          && hasExactly(request.resource.data, ['uid', 'sessionId', 'index', 'screen', 'screenName', 'toScreen', 'toScreenName', 'enteredAt', 'durationMs', 'state', 'appVersion', 'createdAt'])
+          && taskId in ['1', '2', '3', '4']
+          && hasExactly(request.resource.data, ['uid', 'runId', 'task', 'status', 'durationMs', 'clicks', 'endScreen', 'answers', 'appVersion', 'createdAt'])
           && request.resource.data.uid == uid
-          && request.resource.data.sessionId == sessionId
-          && request.resource.data.index is int && request.resource.data.index >= 0 && request.resource.data.index < 1000
-          && request.resource.data.screen is int
-          && request.resource.data.toScreen is int
-          && str(request.resource.data.screenName, 32)
-          && str(request.resource.data.toScreenName, 32)
-          && request.resource.data.enteredAt is int
+          && request.resource.data.runId == runId
+          && request.resource.data.task is int && string(request.resource.data.task) == taskId
+          && request.resource.data.status in ['reached', 'self', 'stuck']
           && request.resource.data.durationMs is int && request.resource.data.durationMs >= 0
-          && state(request.resource.data.state)
+          && request.resource.data.clicks is int && request.resource.data.clicks >= 0 && request.resource.data.clicks < 100000
+          && str(request.resource.data.endScreen, 32)
+          && answers(request.resource.data.answers)
           && str(request.resource.data.appVersion, 64)
           && request.resource.data.createdAt == request.time;
       }
 
-      match /feedback/{feedbackId} {
+      match /final/{finalId} {
         allow read: if isOwner(uid) || isAdmin();
         allow create: if isOwner(uid)
-          && feedbackId == 'final'
-          && hasExactly(request.resource.data, ['uid', 'sessionId', 'confidence', 'unclear', 'path', 'state', 'appVersion', 'createdAt'])
+          && finalId == 'final'
+          && hasExactly(request.resource.data, ['uid', 'runId', 'answers', 'totalMs', 'path', 'events', 'choices', 'appVersion', 'createdAt'])
           && request.resource.data.uid == uid
-          && request.resource.data.sessionId == sessionId
-          && request.resource.data.confidence is int
-          && request.resource.data.confidence >= 1 && request.resource.data.confidence <= 5
-          && str(request.resource.data.unclear, 2000)
-          && request.resource.data.path in ['early', 'full']
-          && state(request.resource.data.state)
+          && request.resource.data.runId == runId
+          && answers(request.resource.data.answers)
+          && request.resource.data.totalMs is int && request.resource.data.totalMs >= 0
+          && request.resource.data.path is list && request.resource.data.path.size() <= 500
+          && request.resource.data.events is list && request.resource.data.events.size() <= 500
+          && request.resource.data.choices is map && request.resource.data.choices.size() <= 40
           && str(request.resource.data.appVersion, 64)
           && request.resource.data.createdAt == request.time;
       }
     }
 
     // Admin export uses collection group queries across all participants.
-    match /{path=**}/sessions/{sessionId} {
+    match /{path=**}/runs/{runId} {
       allow read: if isAdmin();
     }
-    match /{path=**}/steps/{stepId} {
+    match /{path=**}/tasks/{taskId} {
       allow read: if isAdmin();
     }
-    match /{path=**}/feedback/{feedbackId} {
+    match /{path=**}/final/{finalId} {
       allow read: if isAdmin();
     }
   }

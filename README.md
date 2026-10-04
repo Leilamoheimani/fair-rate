@@ -1,31 +1,50 @@
 # FairRate prototype
 
-A clickable prototype (designed in Figma Make) used in a study with ~20–30 participants.
-Every participant's path through the app, their choices and their final feedback are saved to Firebase.
-The owner downloads everything as CSV from a private admin page.
+A clickable prototype (designed in Figma Make) used in a usability test with ~20–30 participants.
+Participants get 4 tasks on top of the prototype, answer a few questions after each task and a short
+questionnaire at the end. Everything is saved to Firebase, and the owner downloads it as CSV from a private admin page.
 
-- **App:** `https://leilamoheimani.github.io/fair-rate/`
+- **App / test:** `https://leilamoheimani.github.io/fair-rate/` (English: add `?lang=en`)
 - **Admin / data download:** `https://leilamoheimani.github.io/fair-rate/#/admin`
+
+## How the test works
+
+1. Intro sheet (DE/EN toggle) explains the scenario → "Test starten".
+2. A task bar above the app shows the current task with "Ich bin fertig" / "Ich komme nicht weiter".
+   A task also ends automatically when the participant reaches its goal:
+
+   | Task | Reached when |
+   |---|---|
+   | 1 Understand the start page | leaves the start page |
+   | 2 Find the hourly floor | reaches the "Untergrenze" screen |
+   | 3 Choose an offer | leaves the offer options ("Weiter zum Angebot" or "Preis manuell anpassen") |
+   | 4 Adjust to 3.100 € budget and download PDF | taps "PDF herunterladen" |
+
+3. After each task, a few questions (1–5 rating, free text, multiple choice); all can be skipped.
+4. Final questionnaire, then a thank-you screen that confirms the answers were saved.
+
+Tasks and questions live in `frontend/src/study/content.ts`. If you add or rename a question id,
+also update the list in `firestore.rules` (`answers()`).
 
 ## What gets saved
 
 Participants are anonymous (Firebase anonymous sign-in, no name or email).
-Each time someone goes through the app, a **session** is created:
 
-| Data | When | What |
+| Document | When | What |
 |---|---|---|
-| `sessions` | app opened / "Neues Angebot" | start time, device, screen size |
-| `steps` | every time the participant leaves a screen | screen, next screen, time spent, all choices so far |
-| `feedback` | "Feedback senden" on the last screen | confidence (1–5), "Was ist noch unklar?" text, early or full path |
+| `runs/{runId}` | "Test starten" | language, start time, device, screen size |
+| `runs/{runId}/tasks/{1-4}` | after each task's questions | status (reached / marked done / stuck), time, clicks, screen where it ended, answers |
+| `runs/{runId}/final/final` | after the final questionnaire | final answers, total time, screen path, events (e.g. warning path, PDF export), all choices in the app |
 
-Stored in Firestore under `participants/{uid}/sessions/{sessionId}/...`.
+Stored in Firestore under `participants/{uid}/runs/...`. Task results are saved one by one, so partial runs are kept too.
 Nobody can change or delete saved data from the browser; only the admin account can read it.
 
 ## Downloading the data
 
 1. Open `…/fair-rate/#/admin` and sign in with the admin Google account.
-2. **Durchläufe als CSV**: one row per session (route, time per screen, all answers, feedback).
-3. **Alle Schritte als CSV**: one row per screen visit (raw data).
+2. **Ergebnisse als CSV**: one row per test (every task outcome and every answer side by side, plus choices).
+3. **Aufgaben als CSV**: one row per task (to compare tasks across participants).
+4. **Fragen-Übersicht als CSV**: which question belongs to which column (`T2_ease`, `final_unclear`, …).
 
 The CSVs use `;` as separator and open directly in Excel (German) or Google Sheets.
 
