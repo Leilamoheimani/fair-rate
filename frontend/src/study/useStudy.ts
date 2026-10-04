@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import type { Lang } from "../lib/texts";
-import { flush, retryFailed, saveFinal, saveTask, startRun, type Answers, type Choices, type TaskResult } from "../lib/tracking";
+import { flush, lastSaveError, retryFailed, saveFinal, saveTask, startRun, type Answers, type Choices, type TaskResult } from "../lib/tracking";
 import { finalQuestions, tasks, type Question } from "./content";
 
 export type Phase = "intro" | "task" | "final" | "done";
@@ -14,7 +14,7 @@ export function useStudy(getChoices: () => Choices) {
   const [sheet, setSheet] = useState<Sheet | null>(null);
   const [saveState, setSaveState] = useState<"saving" | "saved" | "error">("saving");
   // Mutable run data; refs so event handlers never see stale values.
-  const run = useRef({ id: "", t0: 0, taskT0: 0, task: -1, clicks: 0, busy: false, screen: "", path: [] as string[], events: [] as string[] });
+  const run = useRef({ id: "", t0: 0, taskT0: 0, task: -1, clicks: 0, busy: false, finished: false, screen: "", path: [] as string[], events: [] as string[] });
   const choices = useRef(getChoices);
   choices.current = getChoices;
 
@@ -37,6 +37,8 @@ export function useStudy(getChoices: () => Choices) {
 
   const finish = (answers: Answers) => {
     const r = run.current;
+    if (r.finished) return;
+    r.finished = true;
     saveFinal(r.id, { answers, totalMs: Date.now() - r.t0, path: r.path, events: r.events, choices: choices.current() });
     setSheet(null);
     setPhase("done");
@@ -47,10 +49,13 @@ export function useStudy(getChoices: () => Choices) {
     const r = run.current;
     const index = r.task;
     const result = { task: index + 1, status, durationMs: Date.now() - r.taskT0, clicks: r.clicks, endScreen: r.screen };
+    let handled = false;
     setSheet({
       id: index,
       questions: tasks[index].questions,
       onDone: (answers) => {
+        if (handled) return;
+        handled = true;
         saveTask(r.id, { ...result, answers });
         if (index + 1 < tasks.length) {
           setSheet(null);
@@ -110,5 +115,5 @@ export function useStudy(getChoices: () => Choices) {
     retryFailed().then((ok) => setSaveState(ok ? "saved" : "error"));
   };
 
-  return { lang, setLang, phase, taskIndex, sheet, saveState, start, endTask, onScreen, logEvent, countClick, retry };
+  return { lang, setLang, phase, taskIndex, sheet, saveState, saveError: lastSaveError, start, endTask, onScreen, logEvent, countClick, retry };
 }

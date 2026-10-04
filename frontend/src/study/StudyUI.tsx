@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { Lang } from "../lib/texts";
 import type { Answers } from "../lib/tracking";
 import { tasks, ui, type Question } from "./content";
@@ -38,15 +38,21 @@ export function QuestionSheet({ lang, questions, onDone }: { lang: Lang; questio
   const [index, setIndex] = useState(0);
   const [answers, setAnswers] = useState<Answers>({});
   const [value, setValue] = useState<string | number | null>(null);
+  const finished = useRef(false);
   const u = ui[lang];
   const question = questions[index];
 
   const next = (answer: string | number | null) => {
+    // Ignore a second tap on the last question; it would save the answers twice.
+    if (finished.current) return;
     const all = { ...answers, [question.id]: typeof answer === "string" ? answer.trim() || null : answer };
     setAnswers(all);
     setValue(null);
     if (index + 1 < questions.length) setIndex(index + 1);
-    else onDone(all);
+    else {
+      finished.current = true;
+      onDone(all);
+    }
   };
 
   return (
@@ -67,7 +73,7 @@ export function QuestionSheet({ lang, questions, onDone }: { lang: Lang; questio
   );
 }
 
-export function ThankYou({ lang, saveState, onRetry }: { lang: Lang; saveState: "saving" | "saved" | "error"; onRetry: () => void }) {
+export function ThankYou({ lang, saveState, saveError, onRetry }: { lang: Lang; saveState: "saving" | "saved" | "error"; saveError: string; onRetry: () => void }) {
   const u = ui[lang];
   return (
     <section className="phone thanks">
@@ -78,6 +84,7 @@ export function ThankYou({ lang, saveState, onRetry }: { lang: Lang; saveState: 
         {saveState === "saved" && <p className="feedback-status sent">{u.saved}</p>}
         {saveState === "error" && <>
           <p className="feedback-status">{u.saveFailed}</p>
+          <p className="body thanks-status"><small>({saveError})</small></p>
           <button className="button study-cta" onClick={onRetry}>{u.retry}</button>
         </>}
       </div>

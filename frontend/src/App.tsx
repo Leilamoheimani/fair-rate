@@ -164,7 +164,7 @@ export default function App() {
     <main className={`app-shell ${study.phase === "task" ? "testing" : ""}`}>
       {study.phase === "task" && <TaskBar key={`task-${study.taskIndex}`} lang={study.lang} index={study.taskIndex} onDone={() => study.endTask("self")} onStuck={() => study.endTask("stuck")} />}
 
-      {study.phase === "done" ? <ThankYou lang={study.lang} saveState={study.saveState} onRetry={study.retry} /> : (
+      {study.phase === "done" ? <ThankYou lang={study.lang} saveState={study.saveState} saveError={study.saveError()} onRetry={study.retry} /> : (
       <section className="phone" aria-label="FairRate — Mobile Prototype" onClickCapture={study.countClick}>
         <header className="topbar">
           <button className="brand" onClick={() => setScreen(0)}><span className="brand-mark"><Spark /></span><span>FairRate</span></button>
